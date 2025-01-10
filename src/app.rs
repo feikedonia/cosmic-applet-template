@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use cosmic::app::{Command, Core};
-use cosmic::iced::wayland::popup::{destroy_popup, get_popup};
+use cosmic::app::{Core, Task};
 use cosmic::iced::window::Id;
 use cosmic::iced::Limits;
-use cosmic::iced_style::application;
+use cosmic::iced_winit::commands::popup::{destroy_popup, get_popup};
 use cosmic::widget::{self, settings};
-use cosmic::{Application, Element, Theme};
+use cosmic::{Application, Element};
 
 use crate::fl;
 
@@ -64,13 +63,13 @@ impl Application for YourApp {
     /// - `core` is used to passed on for you by libcosmic to use in the core of your own application.
     /// - `flags` is used to pass in any data that your application needs to use before it starts.
     /// - `Command` type is used to send messages to your application. `Command::none()` can be used to send no messages to your application.
-    fn init(core: Core, _flags: Self::Flags) -> (Self, Command<Self::Message>) {
+    fn init(core: Core, _flags: Self::Flags) -> (Self, Task<Self::Message>) {
         let app = YourApp {
             core,
             ..Default::default()
         };
 
-        (app, Command::none())
+        (app, Task::none())
     }
 
     fn on_close_requested(&self, id: Id) -> Option<Message> {
@@ -97,9 +96,7 @@ impl Application for YourApp {
             .spacing(0)
             .add(settings::item(
                 fl!("example-row"),
-                widget::toggler(None, self.example_row, |value| {
-                    Message::ToggleExampleRow(value)
-                }),
+                widget::toggler(self.example_row).on_toggle(Message::ToggleExampleRow),
             ));
 
         self.core.applet.popup_container(content_list).into()
@@ -108,7 +105,7 @@ impl Application for YourApp {
     /// Application messages are handled here. The application state can be modified based on
     /// what message was received. Commands may be returned for asynchronous execution on a
     /// background thread managed by the application's executor.
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    fn update(&mut self, message: Self::Message) -> Task<Self::Message> {
         match message {
             Message::TogglePopup => {
                 return if let Some(p) = self.popup.take() {
@@ -116,10 +113,13 @@ impl Application for YourApp {
                 } else {
                     let new_id = Id::unique();
                     self.popup.replace(new_id);
-                    let mut popup_settings =
-                        self.core
-                            .applet
-                            .get_popup_settings(Id::MAIN, new_id, None, None, None);
+                    let mut popup_settings = self.core.applet.get_popup_settings(
+                        self.core.main_window_id().unwrap(),
+                        new_id,
+                        None,
+                        None,
+                        None,
+                    );
                     popup_settings.positioner.size_limits = Limits::NONE
                         .max_width(372.0)
                         .min_width(300.0)
@@ -135,10 +135,10 @@ impl Application for YourApp {
             }
             Message::ToggleExampleRow(toggled) => self.example_row = toggled,
         }
-        Command::none()
+        Task::none()
     }
 
-    fn style(&self) -> Option<<Theme as application::StyleSheet>::Style> {
+    fn style(&self) -> Option<cosmic::iced_runtime::Appearance> {
         Some(cosmic::applet::style())
     }
 }
